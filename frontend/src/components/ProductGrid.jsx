@@ -209,7 +209,7 @@ const ProductGrid = () => {
                   <CardMedia
                     component="img"
                     height="120"
-                    image={`${API_URL}${product.imageUrl}`}
+                    image={product.images && product.images[0] ? `${API_URL}${product.images[0]}` : '/placeholder-image.jpg'}
                     alt={product.name}
                     sx={{ objectFit: "cover" }}
                   />

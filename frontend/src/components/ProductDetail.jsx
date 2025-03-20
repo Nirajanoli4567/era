@@ -81,7 +81,7 @@ const ProductDetail = () => {
         <Grid item xs={12} md={6}>
           <img
             src={product.images && product.images.length > 0 
-              ? product.images[0] 
+              ? `${API_URL.replace('/api', '')}${product.images[0]}` 
               : '/placeholder-image.jpg'}
             alt={product.name}
             style={{ width: "100%", height: "auto", maxHeight: "500px", objectFit: "contain" }}

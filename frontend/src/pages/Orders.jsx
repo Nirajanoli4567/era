@@ -26,12 +26,14 @@ import {
   RadioGroup,
   Radio,
   FormControlLabel,
-  FormControl
+  FormControl,
+  Tooltip
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import { useAuth } from "../context/AuthContext";
 
 // Set the correct API URL
@@ -52,6 +54,7 @@ const OrderRow = ({ order, onPaymentUpdate }) => {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("cod");
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
+  const navigate = useNavigate();
   
   const getStatusColor = (status) => {
     switch (status) {
@@ -131,29 +134,18 @@ const OrderRow = ({ order, onPaymentUpdate }) => {
           <IconButton
             size="small"
             onClick={() => setOpen(!open)}
+            aria-label="expand row"
           >
             {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
           </IconButton>
         </TableCell>
-        <TableCell>{order.orderNumber || 'N/A'}</TableCell>
-        <TableCell>{formatDate(order.createdAt)}</TableCell>
-        <TableCell>
-          {bargainAccepted ? (
-            <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ textDecoration: 'line-through' }}>
-                Rs. {order.totalAmount.toLocaleString()}
-              </Typography>
-              <Typography variant="body1" color="success.main">
-                Rs. {order.proposedTotal?.toLocaleString() || ''}
-              </Typography>
-            </Box>
-          ) : (
-            `Rs. ${order.totalAmount.toLocaleString()}`
-          )}
+        <TableCell component="th" scope="row">
+          {order._id}
         </TableCell>
+        <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
         <TableCell>
-          <Chip 
-            label={getStatusText(order)}
+          <Chip
+            label={order.status?.replace(/_/g, " ").toUpperCase() || 'PENDING'}
             color={getStatusColor(order.status)}
             size="small"
           />
@@ -190,6 +182,17 @@ const OrderRow = ({ order, onPaymentUpdate }) => {
               </Box>
             ) : null
           )}
+        </TableCell>
+        <TableCell>
+          <Tooltip title="Track Order">
+            <IconButton
+              color="primary"
+              onClick={() => navigate(`/order-tracking/${order._id}`)}
+              size="small"
+            >
+              <LocalShippingIcon />
+            </IconButton>
+          </Tooltip>
         </TableCell>
       </TableRow>
       <TableRow>
@@ -452,9 +455,9 @@ const Orders = () => {
               <TableCell />
               <TableCell>Order ID</TableCell>
               <TableCell>Date</TableCell>
-              <TableCell>Total</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Payment</TableCell>
+              <TableCell>Track</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

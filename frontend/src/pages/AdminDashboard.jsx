@@ -25,6 +25,8 @@ import AdminUsers from "../components/AdminUsers";
 import AdminDashboardHome from "../components/AdminDashboardHome";
 import AdminProfileDialog from "../components/AdminProfileDialog";
 import AdminBargains from '../components/AdminBargains';
+import AdminRevenue from "../components/AdminRevenue";
+import AdminReports from "../components/AdminReports";
 import "./AdminDashboard.css"; // Import the CSS file
 
 const AdminDashboard = () => {
@@ -95,6 +97,8 @@ const AdminDashboard = () => {
 
   const menuItems = [
     { text: "Dashboard", path: "/admin", icon: "📊" },
+    { text: "Revenue", path: "/admin/revenue", icon: "💰" },
+    { text: "Reports", path: "/admin/reports", icon: "📋" },
     { text: "Products", path: "/admin/products", icon: "🛍️" },
     { text: "Orders", path: "/admin/orders", icon: "📦" },
     { text: "Users", path: "/admin/customers", icon: "👥" },
@@ -249,6 +253,8 @@ const AdminDashboard = () => {
         <Toolbar />
         <Routes>
           <Route index element={<AdminDashboardHome />} />
+          <Route path="revenue" element={<AdminRevenue />} />
+          <Route path="reports" element={<AdminReports />} />
           <Route path="products" element={<AdminProducts />} />
           <Route path="orders" element={<AdminOrders />} />
           <Route path="customers" element={<AdminUsers />} />

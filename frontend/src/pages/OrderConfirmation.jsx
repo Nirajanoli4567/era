@@ -9,13 +9,32 @@ import {
   Button,
   Alert,
   CircularProgress,
-  Chip
+  Chip,
+  Stepper,
+  Step,
+  StepLabel,
+  Card,
+  CardContent,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  IconButton,
+  Tooltip
 } from "@mui/material";
 import { useLocation, useNavigate } from "react-router-dom";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import PaymentIcon from "@mui/icons-material/Payment";
+import ShoppingBagIcon from "@mui/icons-material/ShoppingBag";
+import HomeIcon from "@mui/icons-material/Home";
+import ReceiptIcon from "@mui/icons-material/Receipt";
+import ShareIcon from "@mui/icons-material/Share";
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+
+const steps = ['Order Placed', 'Payment Confirmed', 'Processing', 'Shipped', 'Delivered'];
 
 const OrderConfirmation = () => {
   const location = useLocation();
@@ -23,73 +42,64 @@ const OrderConfirmation = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [activeStep, setActiveStep] = useState(0);
   
-  // Get data either from location state (direct from checkout) or use orderId to fetch
-  const receivedOrder = location.state?.order;
-  const orderId = location.state?.order?._id || location.state?.orderId;
-  const isBargaining = location.state?.isBargaining;
+  // Get orderId from URL params or location state
+  const orderId = location.state?.orderId || location.pathname.split('/').pop();
+  console.log('Order ID:', orderId);
+  console.log('Location state:', location.state);
 
   useEffect(() => {
-    if (!orderId && !receivedOrder) {
-      navigate('/');
-      return;
-    }
-
-    // If we already have the order from location state, use it
-    if (receivedOrder) {
-      setOrder(receivedOrder);
-      setLoading(false);
-      return;
-    }
-
     const fetchOrder = async () => {
+      if (!orderId) {
+        console.log('No order ID found');
+        setError("No order ID provided");
+        setLoading(false);
+        return;
+      }
+
       try {
         const token = localStorage.getItem('token');
         if (!token) {
+          console.log('No token found');
           navigate('/login');
           return;
         }
 
-        // First try getting the specific order by ID
-        try {
-          const response = await axios.get(`${API_URL}/api/orders/${orderId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          setOrder(response.data);
-          setLoading(false);
-        } catch (error) {
-          console.error("Error fetching order by ID:", error);
-          
-          // Fallback: try getting all user orders and find this one
-          try {
-            const allOrdersResponse = await axios.get(`${API_URL}/api/orders/user`, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            
-            const foundOrder = allOrdersResponse.data.find(o => o._id === orderId);
-            if (foundOrder) {
-              setOrder(foundOrder);
-            } else {
-              setError("Order not found. Please check your orders page.");
-            }
-            setLoading(false);
-          } catch (fallbackError) {
-            console.error("Error fetching all orders:", fallbackError);
-            setError("Could not retrieve your order information.");
-            setLoading(false);
-          }
-        }
+        console.log('Fetching order with ID:', orderId);
+        const response = await axios.get(`${API_URL}/api/orders/${orderId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        console.log('Order data received:', response.data);
+        setOrder(response.data);
       } catch (error) {
-        console.error("Order confirmation error:", error);
-        setError("Failed to retrieve order details");
+        console.error("Error fetching order:", error);
+        setError(error.response?.data?.message || "Failed to retrieve order details");
+      } finally {
         setLoading(false);
       }
     };
 
     fetchOrder();
-  }, [orderId, receivedOrder, navigate]);
-  
-  // Get appropriate message based on order status
+  }, [orderId, navigate]);
+
+  // Determine active step based on order status
+  useEffect(() => {
+    if (!order) return;
+    
+    const statusToStep = {
+      'pending': 0,
+      'payment_confirmed': 1,
+      'processing': 2,
+      'shipped': 3,
+      'delivered': 4,
+      'cancelled': -1
+    };
+    
+    setActiveStep(statusToStep[order.status] || 0);
+  }, [order]);
+
   const getConfirmationMessage = () => {
     if (!order) return "";
     
@@ -103,7 +113,7 @@ const OrderConfirmation = () => {
             </Typography>
           </Alert>
           <Typography>
-            You've proposed a price of <strong>${order.proposedTotal?.toFixed(2)}</strong> instead of the original ${order.totalAmount?.toFixed(2)}.
+            You've proposed a price of <strong>Rs. {order.proposedTotal?.toFixed(2)}</strong> instead of the original Rs. {order.totalAmount?.toFixed(2)}.
           </Typography>
           <Typography variant="body2" sx={{ mt: 1 }}>
             You can check the status of your request in the Orders page.
@@ -122,8 +132,18 @@ const OrderConfirmation = () => {
           Your order has been placed and is being processed.
         </Typography>
         <Typography>
-          Your order number is: <strong>{order.orderNumber || order._id}</strong>
+          Order Number: <strong>{order._id}</strong>
         </Typography>
+        <Box sx={{ mt: 2 }}>
+          <Tooltip title="Share Order Details">
+            <IconButton color="primary" onClick={() => {
+              navigator.clipboard.writeText(`Order Number: ${order._id}`);
+              alert('Order details copied to clipboard!');
+            }}>
+              <ShareIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
     );
   };
@@ -164,67 +184,119 @@ const OrderConfirmation = () => {
         {order && (
           <>
             <Divider sx={{ my: 3 }} />
+            
+            {/* Order Progress Stepper */}
+            <Box sx={{ mb: 4 }}>
+              <Stepper activeStep={activeStep} alternativeLabel>
+                {steps.map((label) => (
+                  <Step key={label}>
+                    <StepLabel>{label}</StepLabel>
+                  </Step>
+                ))}
+              </Stepper>
+            </Box>
+
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
-                <Typography variant="h6" gutterBottom>
-                  Order Details
-                </Typography>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Status:
-                  </Typography>
-                  <Chip
-                    label={order.status.replace(/_/g, " ").toUpperCase()}
-                    color={
-                      order.status === "awaiting_bargain_approval"
-                        ? "warning"
-                        : order.status === "delivered"
-                        ? "success"
-                        : order.status === "cancelled"
-                        ? "error"
-                        : "primary"
-                    }
-                    size="small"
-                  />
-                </Box>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Date:
-                  </Typography>
-                  <Typography>
-                    {new Date(order.createdAt).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </Typography>
-                </Box>
-                {order.paymentMethod && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Payment Method:
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Order Details
                     </Typography>
-                    <Typography>{order.paymentMethod.toUpperCase()}</Typography>
-                  </Box>
-                )}
+                    <List>
+                      <ListItem>
+                        <ListItemIcon>
+                          <ReceiptIcon />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary="Status"
+                          secondary={
+                            <Chip
+                              label={order.status?.replace(/_/g, " ").toUpperCase() || 'PENDING'}
+                              color={
+                                order.status === "awaiting_bargain_approval"
+                                  ? "warning"
+                                  : order.status === "delivered"
+                                  ? "success"
+                                  : order.status === "cancelled"
+                                  ? "error"
+                                  : "primary"
+                              }
+                              size="small"
+                            />
+                          }
+                        />
+                      </ListItem>
+                      <ListItem>
+                        <ListItemIcon>
+                          <ShoppingBagIcon />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary="Order Date"
+                          secondary={new Date(order.createdAt).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        />
+                      </ListItem>
+                      {order.paymentMethod && (
+                        <ListItem>
+                          <ListItemIcon>
+                            <PaymentIcon />
+                          </ListItemIcon>
+                          <ListItemText
+                            primary="Payment Method"
+                            secondary={order.paymentMethod.toUpperCase()}
+                          />
+                        </ListItem>
+                      )}
+                    </List>
+                  </CardContent>
+                </Card>
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <Typography variant="h6" gutterBottom>
-                  Shipping Information
-                </Typography>
-                <Box>
-                  <Typography>{order.contactInfo?.fullName}</Typography>
-                  <Typography>{order.shippingAddress?.street}</Typography>
-                  <Typography>
-                    {order.shippingAddress?.city},{" "}
-                    {order.shippingAddress?.state}{" "}
-                    {order.shippingAddress?.zipCode}
-                  </Typography>
-                  <Typography>{order.shippingAddress?.country}</Typography>
-                  <Typography>{order.contactInfo?.phone}</Typography>
-                  <Typography>{order.contactInfo?.email}</Typography>
-                </Box>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Shipping Information
+                    </Typography>
+                    <List>
+                      <ListItem>
+                        <ListItemIcon>
+                          <HomeIcon />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={order.contactInfo?.fullName || 'N/A'}
+                          secondary={
+                            <>
+                              <Typography component="span" variant="body2">
+                                {order.shippingAddress?.street || 'N/A'}
+                              </Typography>
+                              <br />
+                              <Typography component="span" variant="body2">
+                                {order.shippingAddress?.city || 'N/A'}, {order.shippingAddress?.state || 'N/A'} {order.shippingAddress?.zipCode || 'N/A'}
+                              </Typography>
+                              <br />
+                              <Typography component="span" variant="body2">
+                                {order.shippingAddress?.country || 'N/A'}
+                              </Typography>
+                              <br />
+                              <Typography component="span" variant="body2">
+                                Phone: {order.contactInfo?.phone || 'N/A'}
+                              </Typography>
+                              <br />
+                              <Typography component="span" variant="body2">
+                                Email: {order.contactInfo?.email || 'N/A'}
+                              </Typography>
+                            </>
+                          }
+                        />
+                      </ListItem>
+                    </List>
+                  </CardContent>
+                </Card>
               </Grid>
             </Grid>
 
@@ -232,84 +304,48 @@ const OrderConfirmation = () => {
               <Typography variant="h6" gutterBottom>
                 Items Ordered
               </Typography>
-              {order.items.map((item, index) => (
-                <Paper
-                  key={index}
-                  variant="outlined"
-                  sx={{ p: 2, mb: 2, display: "flex" }}
-                >
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="subtitle1">
-                      {item.product?.name || "Product not available"}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Quantity: {item.quantity}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="subtitle1">
-                      ${(item.price * item.quantity).toFixed(2)}
-                    </Typography>
-                  </Box>
-                </Paper>
+              {order.items?.map((item, index) => (
+                <Card key={index} variant="outlined" sx={{ mb: 2 }}>
+                  <CardContent>
+                    <Grid container spacing={2} alignItems="center">
+                      <Grid item xs={12} sm={8}>
+                        <Typography variant="subtitle1">
+                          {item.product?.name || "Product not available"}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Quantity: {item.quantity}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={4} sx={{ textAlign: 'right' }}>
+                        <Typography variant="subtitle1">
+                          Rs. {(item.product?.price * item.quantity).toLocaleString()}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
               ))}
-
-              <Box
-                sx={{
-                  mt: 3,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  borderTop: "1px solid #eee",
-                  pt: 2,
-                }}
-              >
-                <Typography variant="h6">Total:</Typography>
-                <Typography variant="h6">
-                  ${order.totalAmount.toFixed(2)}
-                </Typography>
-              </Box>
-              
-              {order.proposedTotal && order.status === 'awaiting_bargain_approval' && (
-                <Box
-                  sx={{
-                    mt: 1,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    color: 'warning.main'
-                  }}
-                >
-                  <Typography variant="subtitle1">Proposed Price:</Typography>
-                  <Typography variant="subtitle1">
-                    ${order.proposedTotal.toFixed(2)}
-                  </Typography>
-                </Box>
-              )}
-              
-              {order.proposedTotal && order.bargainRequest?.status === 'accepted' && (
-                <Box
-                  sx={{
-                    mt: 1,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    color: 'success.main'
-                  }}
-                >
-                  <Typography variant="subtitle1">Accepted Price:</Typography>
-                  <Typography variant="subtitle1">
-                    ${order.proposedTotal.toFixed(2)}
-                  </Typography>
-                </Box>
-              )}
             </Box>
 
-            <Box sx={{ mt: 4, display: "flex", justifyContent: "center" }}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => navigate("/orders")}
-              >
-                View All Orders
-              </Button>
+            <Divider sx={{ my: 3 }} />
+
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography variant="h6">Total Amount</Typography>
+                <Typography variant="h5" color="primary">
+                  Rs. {order.totalAmount?.toLocaleString()}
+                </Typography>
+              </Box>
+              <Box>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => navigate("/orders")}
+                  startIcon={<ShoppingBagIcon />}
+                >
+                  View All Orders
+                </Button>
+              </Box>
             </Box>
           </>
         )}

@@ -23,6 +23,8 @@ import RemoveIcon from "@mui/icons-material/Remove";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+
 const Cart = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -36,12 +38,19 @@ const Cart = () => {
       navigate("/login");
       return;
     }
+    console.log('Fetching cart data...');
     fetchCart();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, navigate]);
 
+  // Add debug logging for cart data
+  useEffect(() => {
+    console.log('Current cart state:', cart);
+  }, [cart]);
+
   const calculateTotal = () => {
     if (!cart || !cart.items || cart.items.length === 0) return 0;
+    console.log('Calculating total for items:', cart.items);
     return cart.items.reduce((total, item) => {
       return total + (item.product.price * item.quantity);
     }, 0);
@@ -170,7 +179,7 @@ const Cart = () => {
                 component="img"
                 sx={{ width: 140, objectFit: 'cover' }}
                 image={item.product.images && item.product.images.length > 0
-                  ? item.product.images[0]
+                  ? `${API_URL}${item.product.images[0]}`
                   : '/placeholder-image.jpg'}
                 alt={item.product.name}
               />

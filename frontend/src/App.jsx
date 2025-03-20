@@ -138,7 +138,14 @@ const AppContent = () => {
               </PrivateRoute>
             }
           />
-          <Route path="/order-tracking" element={<OrderTracking />} />
+          <Route
+            path="/order-tracking/:orderId"
+            element={
+              <PrivateRoute>
+                <OrderTracking />
+              </PrivateRoute>
+            }
+          />
           
           {/* Admin routes - use AdminDashboard as the parent container */}
           <Route

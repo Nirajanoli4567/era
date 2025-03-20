@@ -155,7 +155,7 @@ const Checkout = () => {
       });
       
       // Navigate to order confirmation
-      navigate("/order-confirmation", { 
+      navigate(`/order-confirmation/${response.data._id}`, { 
         state: { 
           order: response.data, 
           isBargaining: formData.isBargaining 

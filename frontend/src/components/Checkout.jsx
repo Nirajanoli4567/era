@@ -114,16 +114,15 @@ const Checkout = () => {
         notes: "",
       };
 
-      await axios.post(`${API_URL}/api/orders`, orderData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      // Clear cart
       await axios.delete(`${API_URL}/api/cart`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      navigate("/order-confirmation");
+      const orderResponse = await axios.post(`${API_URL}/api/orders`, orderData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      navigate(`/order-confirmation/${orderResponse.data._id}`);
     } catch (error) {
       setError("Failed to place order");
     }
