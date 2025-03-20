@@ -58,11 +58,37 @@ const protect = async (req, res, next) => {
 
 // Admin middleware
 const admin = (req, res, next) => {
-  if (req.user && req.user.role === "admin") {
+  if (req.user && req.user.role === 'admin') {
     next();
   } else {
-    res.status(403).json({ message: "Not authorized as admin" });
+    res.status(401);
+    throw new Error('Not authorized as an admin');
   }
 };
 
-module.exports = { protect, admin }; 
+// Middleware to protect vendor routes
+const vendor = (req, res, next) => {
+  if (req.user && req.user.role === 'vendor') {
+    next();
+  } else {
+    res.status(401);
+    throw new Error('Not authorized as a vendor');
+  }
+};
+
+// Middleware to protect routes that can be accessed by both admin and vendor
+const adminOrVendor = (req, res, next) => {
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'vendor')) {
+    next();
+  } else {
+    res.status(401);
+    throw new Error('Not authorized - requires admin or vendor role');
+  }
+};
+
+module.exports = {
+  protect,
+  admin,
+  vendor,
+  adminOrVendor
+}; 

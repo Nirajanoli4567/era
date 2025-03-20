@@ -53,6 +53,7 @@ const orderRoutes = require("./routes/orderRoutes");
 const bargainRoutes = require("./routes/bargainRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const vendorRoutes = require("./routes/vendorRoutes");
 
 // Use routes
 app.use("/api/products", productRoutes);
@@ -62,6 +63,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/bargains", bargainRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/vendor", vendorRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

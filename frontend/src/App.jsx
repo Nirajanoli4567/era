@@ -17,6 +17,7 @@ import ProductGrid from "./components/ProductGrid";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import AdminDashboard from "./pages/AdminDashboard";
+import VendorDashboard from "./pages/VendorDashboard";
 import Profile from "./pages/Profile";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
@@ -34,6 +35,7 @@ import AdminBargains from "./components/AdminBargains";
 import AdminProfile from "./components/AdminProfile";
 import PrivateRoute from "./components/PrivateRoute";
 import AdminRoute from "./components/AdminRoute";
+import VendorRoute from "./components/VendorRoute";
 import Orders from "./pages/Orders";
 import OrderPayment from "./pages/OrderPayment";
 import { AuthProvider } from './context/AuthContext';
@@ -88,10 +90,12 @@ const ProtectedRoute = ({ children }) => {
 const AppContent = () => {
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith("/admin");
+  const isVendorRoute = location.pathname.startsWith("/vendor");
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const isAdmin = user?.role === "admin";
-  const showFooter = !(isAdminRoute && isAdmin);
-  const showNavbar = !(isAdminRoute && isAdmin);
+  const isVendor = user?.role === "vendor";
+  const showFooter = !(isAdminRoute && isAdmin) && !(isVendorRoute && isVendor);
+  const showNavbar = !(isAdminRoute && isAdmin) && !(isVendorRoute && isVendor);
 
   return (
     <Box
@@ -156,6 +160,16 @@ const AppContent = () => {
               <AdminRoute>
                 <AdminDashboard />
               </AdminRoute>
+            }
+          />
+          
+          {/* Vendor routes - use VendorDashboard as the parent container */}
+          <Route
+            path="/vendor/*"
+            element={
+              <VendorRoute>
+                <VendorDashboard />
+              </VendorRoute>
             }
           />
           

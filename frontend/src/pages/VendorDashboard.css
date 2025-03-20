@@ -1,0 +1,71 @@
+/* VendorDashboard Styles */
+
+.vendor-dashboard {
+  min-height: 100vh;
+  background-color: #f9fafb;
+}
+
+.vendor-status-chip {
+  font-size: 0.75rem;
+  height: 24px;
+}
+
+.vendor-menu-item.active {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.vendor-welcome-banner {
+  background-color: #1976d2;
+  color: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-card {
+  height: 100%;
+  transition: transform 0.2s;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon-container {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16px;
+}
+
+.vendor-menu-item-active {
+  background-color: rgba(25, 118, 210, 0.12);
+  border-left: 3px solid #1976d2;
+}
+
+.vendor-menu-icon-active {
+  color: #1976d2;
+}
+
+.vendor-menu-item {
+  transition: background-color 0.2s;
+}
+
+.vendor-menu-item:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Responsive styles */
+@media (max-width: 600px) {
+  .vendor-welcome-banner {
+    padding: 1rem;
+  }
+} 

@@ -1,0 +1,122 @@
+/* VendorDashboard.css */
+.dashboard-card {
+  transition: all 0.3s ease;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.status-chip {
+  font-size: 0.75rem;
+  height: 24px;
+}
+
+.status-chip.pending {
+  background-color: #ffecb3;
+  color: #ff8f00;
+}
+
+.status-chip.processing {
+  background-color: #b3e5fc;
+  color: #0288d1;
+}
+
+.status-chip.shipped {
+  background-color: #c8e6c9;
+  color: #388e3c;
+}
+
+.status-chip.delivered {
+  background-color: #c8e6c9;
+  color: #388e3c;
+}
+
+.status-chip.cancelled {
+  background-color: #ffcdd2;
+  color: #d32f2f;
+}
+
+.vendor-menu-item {
+  border-radius: 8px;
+  margin: 5px 10px;
+  transition: all 0.2s ease;
+}
+
+.vendor-menu-item:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.vendor-menu-item.active {
+  background-color: rgba(0, 0, 0, 0.08);
+  font-weight: 500;
+}
+
+.avatar-upload {
+  position: relative;
+}
+
+.avatar-upload:hover .upload-icon {
+  opacity: 1;
+}
+
+.upload-icon {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  padding: 5px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.welcome-banner {
+  background: linear-gradient(135deg, #000000 0%, #212121 100%);
+  color: white;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.welcome-banner h4 {
+  margin: 0;
+  margin-bottom: 10px;
+}
+
+.stats-grid {
+  margin-bottom: 20px;
+}
+
+.chart-container {
+  height: 300px;
+  margin-bottom: 20px;
+}
+
+.action-button {
+  text-transform: none;
+  margin-bottom: 10px;
+  font-weight: 400;
+}
+
+.action-button:hover {
+  font-weight: 500;
+}
+
+.notification-item {
+  padding: 10px 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item.unread {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.notification-badge {
+  transform: scale(0.8);
+} 

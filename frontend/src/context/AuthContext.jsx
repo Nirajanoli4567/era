@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext();
@@ -10,8 +10,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
+  // Add ref to track last profile fetch time
+  const lastProfileFetch = useRef(0);
+  // Add ref to track if auth is initialized
+  const isInitialized = useRef(false);
+  
   // Fix API URL format - make sure it doesn't have a trailing slash
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
   // Configure axios defaults
   useEffect(() => {
@@ -23,7 +28,10 @@ export const AuthProvider = ({ children }) => {
       (config) => {
         const token = localStorage.getItem('token');
         if (token) {
-          console.log('Adding token to request:', config.url);
+          // Remove console log in production to reduce noise
+          if (import.meta.env.DEV && config.url.includes('profile')) {
+            console.log('Adding token to request:', config.url);
+          }
           config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
@@ -39,26 +47,49 @@ export const AuthProvider = ({ children }) => {
 
   // Initialize auth state from localStorage
   useEffect(() => {
+    // Skip if already initialized
+    if (isInitialized.current) return;
+    
     const loadUserFromStorage = async () => {
+      // Check if we've fetched recently to prevent excessive API calls
+      const now = Date.now();
+      if (now - lastProfileFetch.current < 30000) { // 30 seconds throttle
+        setLoading(false);
+        return;
+      }
+      
+      lastProfileFetch.current = now;
       setLoading(true);
+      
       try {
         const token = localStorage.getItem('token');
         if (token) {
-          console.log('Token found in storage:', token.substring(0, 10) + '...');
+          if (import.meta.env.DEV) {
+            console.log('Token found in storage:', token.substring(0, 10) + '...');
+          }
           
           // Set default headers for all requests
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           
           // Verify token by getting user profile
-          console.log('Fetching user profile from:', `${API_URL}/auth/profile`);
-          const res = await axios.get(`${API_URL}/auth/profile`);
-          console.log('Profile response:', res.data);
+          if (import.meta.env.DEV) {
+            console.log('Fetching user profile from:', `${API_URL}/api/auth/profile`);
+          }
+          
+          const res = await axios.get(`${API_URL}/api/auth/profile`);
+          
+          if (import.meta.env.DEV) {
+            console.log('Profile response:', res.data);
+          }
+          
           setUser(res.data);
           
           // Also store user in localStorage for components that need it
           localStorage.setItem('user', JSON.stringify(res.data));
         } else {
-          console.log('No token found in storage');
+          if (import.meta.env.DEV) {
+            console.log('No token found in storage');
+          }
         }
       } catch (err) {
         console.error('Error loading user from storage:', err);
@@ -67,6 +98,7 @@ export const AuthProvider = ({ children }) => {
         delete axios.defaults.headers.common['Authorization'];
       } finally {
         setLoading(false);
+        isInitialized.current = true;
       }
     };
     
@@ -78,7 +110,7 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post(`${API_URL}/auth/register`, userData);
+      const res = await axios.post(`${API_URL}/api/auth/register`, userData);
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
       
@@ -101,10 +133,16 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError('');
     try {
-      console.log('Logging in at:', `${API_URL}/auth/login`);
-      const res = await axios.post(`${API_URL}/auth/login`, userData);
+      if (import.meta.env.DEV) {
+        console.log('Logging in at:', `${API_URL}/api/auth/login`);
+      }
       
-      console.log('Login response:', res.data);
+      const res = await axios.post(`${API_URL}/api/auth/login`, userData);
+      
+      if (import.meta.env.DEV) {
+        console.log('Login response:', res.data);
+      }
+      
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
       
@@ -144,6 +182,11 @@ export const AuthProvider = ({ children }) => {
     return user?.role === 'admin';
   };
 
+  // Check if user is vendor
+  const isVendor = () => {
+    return user?.role === 'vendor';
+  };
+
   // Get token for external use
   const getToken = () => {
     return localStorage.getItem('token');
@@ -160,6 +203,7 @@ export const AuthProvider = ({ children }) => {
         logout,
         isAuthenticated,
         isAdmin,
+        isVendor,
         getToken
       }}
     >
