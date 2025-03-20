@@ -22,6 +22,7 @@
     "@mui/x-charts": "^7.28.0",
     "@rollup/rollup-win32-x64-msvc": "^4.36.0",
     "axios": "^1.6.0",
+    "date-fns": "^4.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-dropzone": "^14.2.3",

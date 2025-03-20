@@ -25,10 +25,19 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import InventoryIcon from '@mui/icons-material/Inventory';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import MessageIcon from '@mui/icons-material/Message';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import LogoutIcon from '@mui/icons-material/Logout';
 import { Routes, Route, useNavigate, Link, useLocation } from "react-router-dom";
 import VendorDashboardHome from "../components/VendorDashboardHome";
 import VendorProducts from "../components/VendorProducts";
 import VendorOrders from "../components/VendorOrders";
+import VendorBargainRequests from "../components/VendorBargainRequests";
+import VendorNotifications from "../components/VendorNotifications";
+import VendorAnalytics from "../components/VendorAnalytics";
 import VendorProfileDialog from "../components/VendorProfileDialog";
 import "./VendorDashboard.css";
 
@@ -172,29 +181,33 @@ const VendorDashboard = () => {
   };
 
   const menuItems = [
-    { text: "Dashboard", path: "/vendor", icon: "📊" },
-    { text: "Products", path: "/vendor/products", icon: "🛍️" },
-    { text: "Orders", path: "/vendor/orders", icon: "📦" },
+    { text: 'Dashboard', icon: <DashboardIcon />, value: 'dashboard' },
+    { text: 'Products', icon: <InventoryIcon />, value: 'products' },
+    { text: 'Orders', icon: <ShoppingCartIcon />, value: 'orders' },
+    { text: 'Bargain Requests', icon: <MessageIcon />, value: 'bargains' },
+    { text: 'Notifications', icon: <NotificationsIcon />, value: 'notifications' },
+    { text: 'Analytics', icon: <BarChartIcon />, value: 'analytics' },
   ];
 
   const drawer = (
     <>
       <Toolbar>
         <Typography variant="h6" noWrap component="div">
-          Vendor Panel
+          Vendor Portal
         </Typography>
       </Toolbar>
       <Divider />
       <List>
         {menuItems.map((item) => {
-          const isActive = location.pathname === item.path;
-          const isOrderItem = item.path === '/vendor/orders';
+          const isActive = location.pathname === `/vendor/${item.value}` || 
+                          (location.pathname === '/vendor' && item.value === 'dashboard');
+          const isOrderItem = item.value === 'orders';
           
           return (
             <ListItem key={item.text} disablePadding>
               <ListItemButton
                 component={Link}
-                to={item.path}
+                to={item.value === 'dashboard' ? '/vendor' : `/vendor/${item.value}`}
                 onClick={() => isMobile && setMobileOpen(false)}
                 sx={{
                   bgcolor: isActive ? 'rgba(0, 0, 0, 0.08)' : 'transparent',
@@ -240,13 +253,17 @@ const VendorDashboard = () => {
       <List>
         <ListItem disablePadding>
           <ListItemButton onClick={handleProfileOpen}>
-            <ListItemIcon>👤</ListItemIcon>
+            <ListItemIcon>
+              <AccountCircleIcon />
+            </ListItemIcon>
             <ListItemText primary="Profile" />
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
           <ListItemButton onClick={handleLogout}>
-            <ListItemIcon>🚪</ListItemIcon>
+            <ListItemIcon>
+              <LogoutIcon />
+            </ListItemIcon>
             <ListItemText primary="Logout" />
           </ListItemButton>
         </ListItem>
@@ -459,10 +476,13 @@ const VendorDashboard = () => {
       >
         <Toolbar />
         <Routes>
-          <Route index element={<VendorDashboardHome />} />
+          <Route path="/" element={<VendorDashboardHome />} />
+          <Route path="dashboard" element={<VendorDashboardHome />} />
           <Route path="products" element={<VendorProducts />} />
           <Route path="orders" element={<VendorOrders />} />
-          <Route path="*" element={<VendorDashboardHome />} />
+          <Route path="bargains" element={<VendorBargainRequests />} />
+          <Route path="notifications" element={<VendorNotifications />} />
+          <Route path="analytics" element={<VendorAnalytics />} />
         </Routes>
       </Box>
       <VendorProfileDialog

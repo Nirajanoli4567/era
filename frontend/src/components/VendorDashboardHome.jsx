@@ -101,7 +101,6 @@ const VendorDashboardHome = () => {
   const [revenueTab, setRevenueTab] = useState(0);
   const [recentOrders, setRecentOrders] = useState([]);
   
-  // Add useRef for API throttling
   const lastFetchTime = useRef(0);
   const isMounted = useRef(true);
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -24,42 +24,110 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Divider
+  Divider,
+  Collapse,
+  Card,
+  CardContent,
+  Tabs,
+  Tab,
+  Stack
 } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
+import InventoryIcon from "@mui/icons-material/Inventory";
+import PendingIcon from "@mui/icons-material/Pending";
+import PriceChangeIcon from "@mui/icons-material/PriceChange";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import axios from "axios";
+import OrderRow from "./Row";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+
+// Placeholder image for fallback
+const PLACEHOLDER_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+
+const statusIcons = {
+  pending: <PendingIcon />,
+  processing: <InventoryIcon />,
+  shipped: <LocalShippingIcon />,
+  delivered: <CheckCircleIcon />,
+  cancelled: <CancelIcon />,
+  awaiting_bargain_approval: <PriceChangeIcon />,
+};
+
+const statusLabels = {
+  pending: "Pending",
+  processing: "Processing",
+  shipped: "Shipped",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+  awaiting_bargain_approval: "Awaiting Bargain Approval",
+};
+
+const getStatusColor = (status) => {
+  switch (status) {
+    case "pending":
+      return "warning";
+    case "processing":
+      return "info";
+    case "shipped":
+      return "primary";
+    case "delivered":
+      return "success";
+    case "cancelled":
+      return "error";
+    case "awaiting_bargain_approval":
+      return "secondary";
+    default:
+      return "default";
+  }
+};
+
+const formatDate = (dateString) => {
+  const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+  return new Date(dateString).toLocaleDateString(undefined, options);
+};
 
 const VendorOrders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [statusUpdateLoading, setStatusUpdateLoading] = useState(false);
-  const [newStatus, setNewStatus] = useState("");
-  const [trackingInfo, setTrackingInfo] = useState("");
-  const [statusMessage, setStatusMessage] = useState("");
+  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState("all");
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      setError("");
       const token = localStorage.getItem("token");
-      const response = await axios.get(`${API_URL}/api/vendor/orders`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      setOrders(response.data);
+      
+      // Try to get all orders from vendor/all-orders endpoint
+      try {
+        const { data } = await axios.get(`${API_URL}/api/vendor/all-orders`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setOrders(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+      } catch (allOrdersError) {
+        console.log("Falling back to vendor orders endpoint");
+        // Fallback to vendor-specific orders endpoint
+        const { data } = await axios.get(`${API_URL}/api/vendor/orders`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setOrders(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+      }
+      
       setLoading(false);
     } catch (err) {
-      console.error("Error fetching orders:", err);
-      setError("Failed to load orders. " + (err.response?.data?.message || err.message));
+      setError(
+        err.response?.data?.message || 
+        err.message || 
+        "Failed to fetch orders"
+      );
       setLoading(false);
     }
   };
@@ -68,329 +136,252 @@ const VendorOrders = () => {
     fetchOrders();
   }, []);
 
-  const handleOpenDialog = (order) => {
-    setSelectedOrder(order);
-    setNewStatus(order.status || "");
-    setTrackingInfo(order.trackingInfo || "");
-    setStatusMessage("");
-    setDialogOpen(true);
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
   };
 
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setSelectedOrder(null);
-  };
-
-  const handleStatusChange = (event) => {
-    setNewStatus(event.target.value);
-  };
-
-  const handleTrackingInfoChange = (event) => {
-    setTrackingInfo(event.target.value);
-  };
-
-  const handleStatusMessageChange = (event) => {
-    setStatusMessage(event.target.value);
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "pending":
-        return "warning";
-      case "processing":
-        return "info";
-      case "shipped":
-        return "primary";
-      case "delivered":
-        return "success";
-      case "cancelled":
-        return "error";
-      default:
-        return "default";
+  const getFilteredOrders = () => {
+    if (activeTab === "all") {
+      return orders;
     }
+    return orders.filter((order) => order.status === activeTab);
   };
 
-  const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
-  };
+  const filteredOrders = useMemo(() => getFilteredOrders(), [orders, activeTab]);
 
-  const calculateTotal = (items) => {
-    return items.reduce((total, item) => total + (item.price * item.quantity), 0);
-  };
+  const orderCounts = useMemo(() => {
+    const counts = {
+      all: orders.length,
+      pending: 0,
+      processing: 0,
+      shipped: 0,
+      delivered: 0,
+      cancelled: 0,
+      awaiting_bargain_approval: 0,
+    };
 
-  const handleUpdateStatus = async () => {
-    if (!selectedOrder || !newStatus) return;
+    orders.forEach((order) => {
+      if (counts[order.status] !== undefined) {
+        counts[order.status]++;
+      }
+    });
 
-    try {
-      setStatusUpdateLoading(true);
-      const token = localStorage.getItem("token");
-      const data = {
-        status: newStatus,
-        trackingInfo: trackingInfo,
-        statusMessage: statusMessage
-      };
+    return counts;
+  }, [orders]);
 
-      await axios.put(`${API_URL}/api/vendor/orders/${selectedOrder._id}/status`, data, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
-      // Update local state
-      setOrders(orders.map(order => 
-        order._id === selectedOrder._id 
-          ? { ...order, status: newStatus, trackingInfo, statusMessage } 
-          : order
-      ));
-
-      setStatusUpdateLoading(false);
-      handleCloseDialog();
-    } catch (err) {
-      console.error("Error updating order status:", err);
-      setError("Failed to update order status. " + (err.response?.data?.message || err.message));
-      setStatusUpdateLoading(false);
-    }
-  };
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ mt: 2 }}>
+        {error}
+      </Alert>
+    );
+  }
 
   return (
     <Box sx={{ width: "100%" }}>
-      <Typography variant="h5" component="div" sx={{ mb: 3 }}>
-        Manage Orders
+      <Typography variant="h4" gutterBottom>
+        Order Management
       </Typography>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
+      {/* Order Status Cards */}
+      <Stack 
+        direction={{ xs: 'column', sm: 'row' }} 
+        spacing={2} 
+        sx={{ mb: 3, flexWrap: 'wrap' }}
+      >
+        <Card sx={{ minWidth: 160, flex: 1 }}>
+          <CardContent>
+            <Typography sx={{ fontSize: 14 }} color="text.secondary" gutterBottom>
+              Total Orders
+            </Typography>
+            <Typography variant="h3">{orderCounts.all}</Typography>
+          </CardContent>
+        </Card>
+        <Card sx={{ minWidth: 160, flex: 1 }}>
+          <CardContent>
+            <Typography sx={{ fontSize: 14 }} color="text.secondary" gutterBottom>
+              Pending
+            </Typography>
+            <Typography variant="h3">{orderCounts.pending}</Typography>
+          </CardContent>
+        </Card>
+        <Card sx={{ minWidth: 160, flex: 1 }}>
+          <CardContent>
+            <Typography sx={{ fontSize: 14 }} color="text.secondary" gutterBottom>
+              Processing
+            </Typography>
+            <Typography variant="h3">{orderCounts.processing}</Typography>
+          </CardContent>
+        </Card>
+        <Card sx={{ minWidth: 160, flex: 1 }}>
+          <CardContent>
+            <Typography sx={{ fontSize: 14 }} color="text.secondary" gutterBottom>
+              Shipped
+            </Typography>
+            <Typography variant="h3">{orderCounts.shipped}</Typography>
+          </CardContent>
+        </Card>
+      </Stack>
 
-      <Paper sx={{ width: "100%", mb: 2 }}>
-        <TableContainer>
-          <Table>
+      {/* Filter by Status Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+        <Tabs 
+          value={activeTab} 
+          onChange={handleTabChange} 
+          variant="scrollable"
+          scrollButtons="auto"
+        >
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <span>All Orders</span>
+                <Chip 
+                  label={orderCounts.all} 
+                  size="small" 
+                  sx={{ ml: 1 }} 
+                />
+              </Box>
+            } 
+            value="all" 
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <span>Pending</span>
+                <Chip 
+                  label={orderCounts.pending} 
+                  size="small" 
+                  color="warning" 
+                  sx={{ ml: 1 }} 
+                />
+              </Box>
+            } 
+            value="pending" 
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <span>Processing</span>
+                <Chip 
+                  label={orderCounts.processing} 
+                  size="small" 
+                  color="info" 
+                  sx={{ ml: 1 }} 
+                />
+              </Box>
+            } 
+            value="processing" 
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <span>Shipped</span>
+                <Chip 
+                  label={orderCounts.shipped} 
+                  size="small" 
+                  color="primary" 
+                  sx={{ ml: 1 }} 
+                />
+              </Box>
+            } 
+            value="shipped" 
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <span>Delivered</span>
+                <Chip 
+                  label={orderCounts.delivered} 
+                  size="small" 
+                  color="success" 
+                  sx={{ ml: 1 }} 
+                />
+              </Box>
+            } 
+            value="delivered" 
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <span>Cancelled</span>
+                <Chip 
+                  label={orderCounts.cancelled} 
+                  size="small" 
+                  color="error" 
+                  sx={{ ml: 1 }} 
+                />
+              </Box>
+            } 
+            value="cancelled" 
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <span>Bargain Requests</span>
+                <Chip 
+                  label={orderCounts.awaiting_bargain_approval} 
+                  size="small" 
+                  color="secondary" 
+                  sx={{ ml: 1 }} 
+                />
+              </Box>
+            } 
+            value="awaiting_bargain_approval" 
+          />
+        </Tabs>
+      </Box>
+
+      {filteredOrders.length === 0 ? (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          No {activeTab !== "all" ? activeTab : ""} orders found.
+        </Alert>
+      ) : (
+        <TableContainer component={Paper} sx={{ minHeight: 400 }}>
+          <Table sx={{ minWidth: 650 }}>
             <TableHead>
               <TableRow>
+                <TableCell />
                 <TableCell>Order ID</TableCell>
-                <TableCell>Date</TableCell>
                 <TableCell>Customer</TableCell>
-                <TableCell>Items</TableCell>
+                <TableCell>Date</TableCell>
                 <TableCell>Total</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center">
-                    <CircularProgress />
-                  </TableCell>
-                </TableRow>
-              ) : orders.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center">
-                    No orders found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                orders.map((order) => (
-                  <TableRow key={order._id}>
-                    <TableCell>
-                      {order._id.substring(order._id.length - 8)}
-                    </TableCell>
-                    <TableCell>{formatDate(order.createdAt)}</TableCell>
-                    <TableCell>{order.userId?.name || "Unknown"}</TableCell>
-                    <TableCell>{order.items.length} items</TableCell>
-                    <TableCell>Rs. {calculateTotal(order.items)}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                        color={getStatusColor(order.status)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <IconButton
-                        color="primary"
-                        onClick={() => handleOpenDialog(order)}
-                        size="small"
-                      >
-                        <VisibilityIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
+              {filteredOrders.map((order) => (
+                <OrderRow 
+                  key={order._id} 
+                  order={{
+                    ...order,
+                    userId: order.user
+                  }} 
+                  onStatusUpdate={fetchOrders} 
+                />
+              ))}
             </TableBody>
           </Table>
         </TableContainer>
-      </Paper>
+      )}
 
-      {/* Order Details Dialog */}
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        {selectedOrder && (
-          <>
-            <DialogTitle>
-              Order Details
-            </DialogTitle>
-            <DialogContent dividers>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Order Information
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Order ID:</strong> {selectedOrder._id}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Date:</strong> {formatDate(selectedOrder.createdAt)}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Status:</strong>{" "}
-                    <Chip
-                      label={selectedOrder.status.charAt(0).toUpperCase() + selectedOrder.status.slice(1)}
-                      color={getStatusColor(selectedOrder.status)}
-                      size="small"
-                    />
-                  </Typography>
-                  {selectedOrder.trackingInfo && (
-                    <Typography variant="body2">
-                      <strong>Tracking Info:</strong> {selectedOrder.trackingInfo}
-                    </Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Customer Information
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Name:</strong> {selectedOrder.userId?.name || "Unknown"}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Email:</strong> {selectedOrder.userId?.email || "Unknown"}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Shipping Address:</strong> {selectedOrder.shippingAddress || "Not provided"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle1" gutterBottom>
-                    Order Items
-                  </Typography>
-                  <TableContainer component={Paper} variant="outlined">
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Product</TableCell>
-                          <TableCell>Price</TableCell>
-                          <TableCell>Quantity</TableCell>
-                          <TableCell>Total</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {selectedOrder.items.map((item, index) => (
-                          <TableRow key={index}>
-                            <TableCell>
-                              <Box sx={{ display: "flex", alignItems: "center" }}>
-                                {item.product?.images && item.product.images.length > 0 && (
-                                  <img
-                                    src={item.product.images[0]}
-                                    alt={item.product?.name}
-                                    style={{ width: 40, height: 40, objectFit: "cover", marginRight: 10 }}
-                                    onError={(e) => {
-                                      e.target.src = "https://via.placeholder.com/40";
-                                    }}
-                                  />
-                                )}
-                                {item.product?.name || "Unknown Product"}
-                              </Box>
-                            </TableCell>
-                            <TableCell>Rs. {item.price}</TableCell>
-                            <TableCell>{item.quantity}</TableCell>
-                            <TableCell>Rs. {item.price * item.quantity}</TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow>
-                          <TableCell colSpan={3} align="right">
-                            <strong>Total:</strong>
-                          </TableCell>
-                          <TableCell>
-                            <strong>Rs. {calculateTotal(selectedOrder.items)}</strong>
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle1" gutterBottom>
-                    Update Order Status
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth margin="normal">
-                        <InputLabel id="status-select-label">Status</InputLabel>
-                        <Select
-                          labelId="status-select-label"
-                          value={newStatus}
-                          onChange={handleStatusChange}
-                          label="Status"
-                        >
-                          <MenuItem value="pending">Pending</MenuItem>
-                          <MenuItem value="processing">Processing</MenuItem>
-                          <MenuItem value="shipped">Shipped</MenuItem>
-                          <MenuItem value="delivered">Delivered</MenuItem>
-                          <MenuItem value="cancelled">Cancelled</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Tracking Information"
-                        value={trackingInfo}
-                        onChange={handleTrackingInfoChange}
-                        margin="normal"
-                        helperText="Enter tracking number or courier information"
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Status Message (Optional)"
-                        value={statusMessage}
-                        onChange={handleStatusMessageChange}
-                        margin="normal"
-                        multiline
-                        rows={2}
-                        helperText="Add a message to the customer about this status update"
-                      />
-                    </Grid>
-                  </Grid>
-                </Grid>
-              </Grid>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={handleCloseDialog} disabled={statusUpdateLoading}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleUpdateStatus}
-                variant="contained"
-                color="primary"
-                disabled={statusUpdateLoading || newStatus === selectedOrder.status}
-                startIcon={statusUpdateLoading ? <CircularProgress size={20} /> : null}
-              >
-                {statusUpdateLoading ? "Updating..." : "Update Status"}
-              </Button>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
+      <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
+        <Button 
+          variant="outlined"
+          onClick={fetchOrders}
+          disabled={loading}
+        >
+          {loading ? "Refreshing..." : "Refresh Orders"}
+        </Button>
+      </Box>
     </Box>
   );
 };
