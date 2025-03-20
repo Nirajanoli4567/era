@@ -29,6 +29,14 @@ const userSchema = new mongoose.Schema({
     enum: ['user', 'admin'],
     default: 'user'
   },
+  phone: {
+    type: String,
+    default: ''
+  },
+  profilePic: {
+    type: String,
+    default: ''
+  },
   createdAt: {
     type: Date,
     default: Date.now

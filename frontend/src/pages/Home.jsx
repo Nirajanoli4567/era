@@ -14,7 +14,7 @@ const Home = () => {
           Welcome to Our Store
         </Typography>
         
-        {/* Developer Tools Section - Only visible in development */}
+        {/* Developer Tools Section - Commented out
         {import.meta.env.DEV && (
           <Box sx={{ mb: 4, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
             <Typography variant="h6" gutterBottom>Developer Tools</Typography>
@@ -32,6 +32,7 @@ const Home = () => {
             </Typography>
           </Box>
         )}
+        */}
         
         <ProductGrid limit={8} />
         

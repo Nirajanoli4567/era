@@ -288,11 +288,13 @@ const Product = mongoose.models.Product || mongoose.model("Product", productSche
 const Order = mongoose.models.Order || mongoose.model("Order", orderSchema);
 const Bargain = mongoose.models.Bargain || mongoose.model("Bargain", bargainSchema);
 const Cart = mongoose.models.Cart || mongoose.model("Cart", cartSchema);
+const Notification = mongoose.models.Notification || mongoose.model("Notification", require('./Notification').schema);
 
 module.exports = {
   User,
   Order,
   Product,
   Bargain,
-  Cart
+  Cart,
+  Notification
 }; 

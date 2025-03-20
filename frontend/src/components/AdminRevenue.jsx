@@ -39,18 +39,28 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
+// Sample data for initial rendering or when API fails
+const sampleData = {
+  totalRevenue: 0,
+  deliveredOrders: 0,
+  averageOrderValue: 0,
+  revenueGrowth: 0,
+  revenueByMonth: [
+    { month: "2023-1", revenue: 0 },
+    { month: "2023-2", revenue: 0 },
+  ],
+  revenueByCategory: [
+    { category: "Electronics", revenue: 0 },
+    { category: "Clothing", revenue: 0 },
+  ]
+};
+
 const AdminRevenue = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [timeRange, setTimeRange] = useState("month");
-  const [revenueData, setRevenueData] = useState({
-    totalRevenue: 0,
-    deliveredOrders: 0,
-    averageOrderValue: 0,
-    revenueGrowth: 0,
-    revenueByMonth: [],
-    revenueByCategory: [],
-  });
+  const [revenueData, setRevenueData] = useState(sampleData);
+  const [debugInfo, setDebugInfo] = useState("");
 
   useEffect(() => {
     fetchRevenueData();
@@ -59,6 +69,9 @@ const AdminRevenue = () => {
   const fetchRevenueData = async () => {
     try {
       setLoading(true);
+      setError("");
+      setDebugInfo("");
+      
       const token = localStorage.getItem("token");
       if (!token) {
         setError("Authentication required");
@@ -68,19 +81,73 @@ const AdminRevenue = () => {
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [revenueResponse, categoryResponse] = await Promise.all([
-        axios.get(`${API_URL}/api/admin/revenue?timeRange=${timeRange}`, { headers }),
-        axios.get(`${API_URL}/api/admin/revenue-by-category`, { headers }),
-      ]);
-
-      setRevenueData({
+      console.log(`Fetching revenue data for timeRange: ${timeRange}`);
+      
+      // Use a single API call for simplicity
+      const revenueResponse = await axios.get(
+        `${API_URL}/api/admin/revenue?timeRange=${timeRange}`, 
+        { headers }
+      );
+      
+      console.log("Revenue API response:", revenueResponse.data);
+      
+      if (!revenueResponse.data) {
+        throw new Error("No data received from revenue API");
+      }
+      
+      // Default empty arrays if data is missing
+      const responseData = {
         ...revenueResponse.data,
-        revenueByCategory: categoryResponse.data || [],
-      });
+        revenueByMonth: revenueResponse.data.revenueByMonth || [],
+        revenueByCategory: revenueResponse.data.revenueByCategory || []
+      };
+      
+      // Format the data for better visualization
+      const formattedData = {
+        ...responseData,
+        totalRevenue: Number(responseData.totalRevenue || 0),
+        deliveredOrders: Number(responseData.deliveredOrders || 0),
+        averageOrderValue: Number(responseData.averageOrderValue || 0),
+        revenueGrowth: Number(responseData.revenueGrowth || 0),
+        revenueByMonth: responseData.revenueByMonth.map(item => ({
+          ...item,
+          revenue: Number(item.revenue || 0)
+        })),
+        revenueByCategory: responseData.revenueByCategory.map(item => ({
+          ...item,
+          revenue: Number(item.revenue || 0)
+        }))
+      };
+      
+      setRevenueData(formattedData);
+      setDebugInfo(`Successfully loaded revenue data for ${timeRange}`);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching revenue data:", error);
-      setError(error.response?.data?.message || "Failed to load revenue data");
+      
+      // Detailed error information for debugging
+      let errorMsg = "Failed to load revenue data";
+      let debugMsg = "";
+      
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        debugMsg = `Server responded with status: ${error.response.status}`;
+        if (error.response.data && error.response.data.message) {
+          errorMsg = error.response.data.message;
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        debugMsg = "No response received from server";
+      } else {
+        // Something happened in setting up the request
+        debugMsg = error.message;
+      }
+      
+      setError(errorMsg);
+      setDebugInfo(debugMsg);
+      
+      // Set default empty data
+      setRevenueData(sampleData);
       setLoading(false);
     }
   };
@@ -114,21 +181,10 @@ const AdminRevenue = () => {
     );
   }
 
-  if (error) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
-        <Button variant="contained" onClick={fetchRevenueData}>
-          Retry
-        </Button>
-      </Box>
-    );
-  }
-
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 4 }}>
-        <Typography variant="h4">Revenue Analytics</Typography>
+        <Typography variant="h4">Revenue Analytics (Delivered Orders)</Typography>
         <FormControl sx={{ minWidth: 200 }}>
           <InputLabel>Time Range</InputLabel>
           <Select
@@ -142,6 +198,27 @@ const AdminRevenue = () => {
           </Select>
         </FormControl>
       </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+          {debugInfo && <Box sx={{ mt: 1, fontSize: '0.8rem' }}>{debugInfo}</Box>}
+        </Alert>
+      )}
+
+      {debugInfo && !error && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {debugInfo}
+        </Alert>
+      )}
+
+      <Button 
+        variant="outlined" 
+        onClick={fetchRevenueData} 
+        sx={{ mb: 2 }}
+      >
+        Refresh Data
+      </Button>
 
       {/* Statistics Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -188,25 +265,33 @@ const AdminRevenue = () => {
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 2, height: 400 }}>
             <Typography variant="h6" gutterBottom>
-              Revenue Trend
+              Revenue Trend (Delivered Orders)
             </Typography>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={revenueData.revenueByMonth}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip formatter={(value) => `Rs. ${value.toLocaleString()}`} />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  name="Revenue"
-                  stroke="#8884d8"
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
-                  activeDot={{ r: 8 }}
-                />
-              </LineChart>
+              {revenueData.revenueByMonth && revenueData.revenueByMonth.length > 0 ? (
+                <LineChart data={revenueData.revenueByMonth}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => `Rs. ${value.toLocaleString()}`} />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    name="Revenue"
+                    stroke="#8884d8"
+                    strokeWidth={2}
+                    dot={{ r: 4 }}
+                    activeDot={{ r: 8 }}
+                  />
+                </LineChart>
+              ) : (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                  <Typography variant="body1" color="text.secondary">
+                    No revenue trend data available
+                  </Typography>
+                </Box>
+              )}
             </ResponsiveContainer>
           </Paper>
         </Grid>
@@ -227,7 +312,7 @@ const AdminRevenue = () => {
                     fill="#8884d8"
                     dataKey="revenue"
                     nameKey="category"
-                    label={({ category, revenue }) => `${category}: Rs.${revenue.toLocaleString()}`}
+                    label={({ category, revenue }) => `${category || 'Unknown'}: Rs.${revenue.toLocaleString()}`}
                   >
                     {revenueData.revenueByCategory.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

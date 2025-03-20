@@ -40,9 +40,11 @@ import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 
 // Conditionally import the test page only in development
+/* Commented out developer tools
 const EsewaTestPage = import.meta.env.DEV 
   ? React.lazy(() => import('./pages/EsewaTestPage')) 
   : null;
+*/
 
 // Create a theme instance
 const theme = createTheme({
@@ -169,7 +171,7 @@ const AppContent = () => {
           <Route path="/payment/:orderId" element={<PrivateRoute><OrderPayment /></PrivateRoute>} />
           
           {/* Development-only routes */}
-          {import.meta.env.DEV && EsewaTestPage && (
+          {/* {import.meta.env.DEV && EsewaTestPage && (
             <Route 
               path="/esewa-test" 
               element={
@@ -178,7 +180,7 @@ const AppContent = () => {
                 </React.Suspense>
               } 
             />
-          )}
+          )} */}
         </Routes>
       </Box>
       {showFooter && <Footer />}
