@@ -184,9 +184,11 @@ exports.esewaPaymentSuccess = async (req, res) => {
     
     if (transaction_uuid) {
       // Find the order by transaction ID directly
+      console.log("Looking for order with transaction ID:", transaction_uuid);
       const order = await Order.findOne({ transactionId: transaction_uuid });
       
       if (order) {
+        console.log("Order found:", order._id);
         // Update order payment status
         order.paymentStatus = "completed";
         order.paymentDetails = {
@@ -201,6 +203,40 @@ exports.esewaPaymentSuccess = async (req, res) => {
         
         // Redirect to order confirmation
         return res.redirect(`${FRONTEND_URL}/order-confirmation/${order._id}?payment=success`);
+      } else {
+        console.log("No order found with transaction ID:", transaction_uuid);
+      }
+    }
+    
+    // If we have oid parameter (another format from eSewa)
+    if (req.query.oid) {
+      console.log("Looking for order with oid:", req.query.oid);
+      // Try to find order by the oid which might be our order ID directly
+      let order = await Order.findById(req.query.oid);
+      
+      // If not found by ID, try looking by transaction ID
+      if (!order) {
+        order = await Order.findOne({ transactionId: req.query.oid });
+      }
+      
+      if (order) {
+        console.log("Order found using oid:", order._id);
+        // Update order payment status
+        order.paymentStatus = "completed";
+        order.paymentDetails = {
+          gateway: "esewa",
+          referenceId: req.query.refId || req.query.oid,
+          amount: order.totalAmount,
+          paidAt: new Date()
+        };
+        
+        await order.save();
+        console.log(`Order ${order._id} payment marked as completed using oid`);
+        
+        // Redirect to order confirmation
+        return res.redirect(`${FRONTEND_URL}/order-confirmation/${order._id}?payment=success`);
+      } else {
+        console.log("No order found with oid:", req.query.oid);
       }
     }
     

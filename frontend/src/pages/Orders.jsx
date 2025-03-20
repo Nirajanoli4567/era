@@ -365,6 +365,32 @@ const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [paymentMessage, setPaymentMessage] = useState("");
+
+  // Check for payment status in URL
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const paymentStatus = queryParams.get('payment');
+    
+    if (paymentStatus === 'success') {
+      setPaymentMessage({ type: 'success', text: 'Payment completed successfully!' });
+    } else if (paymentStatus === 'failed') {
+      setPaymentMessage({ type: 'error', text: 'Payment failed. Please try again.' });
+    } else if (paymentStatus === 'unidentified') {
+      setPaymentMessage({ 
+        type: 'warning', 
+        text: 'Payment was processed but order could not be identified. Please contact support if you were charged.'
+      });
+    } else if (paymentStatus === 'error') {
+      setPaymentMessage({ type: 'error', text: 'An error occurred during payment processing.' });
+    }
+    
+    // Remove the query parameter from URL without refreshing
+    if (paymentStatus) {
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, []);
 
   const fetchOrders = async () => {
     if (!isAuthenticated()) {
@@ -447,7 +473,17 @@ const Orders = () => {
       <Typography variant="h4" gutterBottom>
         My Orders
       </Typography>
-
+      
+      {paymentMessage && (
+        <Alert 
+          severity={paymentMessage.type} 
+          sx={{ mb: 3 }}
+          onClose={() => setPaymentMessage(null)}
+        >
+          {paymentMessage.text}
+        </Alert>
+      )}
+      
       <TableContainer component={Paper}>
         <Table aria-label="collapsible table">
           <TableHead>
