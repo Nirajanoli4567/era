@@ -12,6 +12,7 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import EsewaPayment from '../components/EsewaPayment';
+import { useAuth } from '../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
@@ -21,16 +22,18 @@ const OrderPayment = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { user, getToken } = useAuth();
 
   useEffect(() => {
     fetchOrderDetails();
-  }, [orderId]);
+  }, [orderId, user]);
 
   const fetchOrderDetails = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getToken();
       if (!token) {
-        navigate('/login');
+        setError('Authentication required. Please log in.');
+        setLoading(false);
         return;
       }
 
@@ -42,7 +45,13 @@ const OrderPayment = () => {
       setLoading(false);
     } catch (error) {
       console.error('Error fetching order details:', error);
-      setError('Could not load order details. Please try again.');
+      
+      if (error.response && error.response.status === 401) {
+        setError('Your session has expired. Please log in again.');
+      } else {
+        setError('Could not load order details. Please try again.');
+      }
+      
       setLoading(false);
     }
   };

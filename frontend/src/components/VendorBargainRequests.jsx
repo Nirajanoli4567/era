@@ -535,24 +535,30 @@ const VendorBargainRequests = () => {
   const handleBargainAction = async (action, bargain, data = {}) => {
     try {
       const token = localStorage.getItem("token");
-      let endpoint;
-
-      if (action === "counter") {
-        endpoint = `${API_URL}/api/vendor/bargains/${bargain._id}/counter`;
-      } else {
-        endpoint = `${API_URL}/api/vendor/bargains/${bargain._id}/${action}`;
-      }
-
-      await axios.post(endpoint, data, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
+      
+      // Endpoints for different actions
+      const endpoint = `${API_URL}/api/vendor/bargains/${bargain._id}/${action}`;
+      
+      console.log(`Sending ${action} request to ${endpoint}`, action === "counter" ? data : {});
+      
+      // Use POST method for all actions
+      const response = await axios.post(
+        endpoint, 
+        action === "counter" ? data : {}, 
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      
+      console.log(`${action} response:`, response.data);
+      
       // Refresh bargains list
       fetchBargains();
     } catch (err) {
+      console.error(`Error during ${action} action:`, err);
       setError(
         err.response?.data?.message || 
         err.message || 

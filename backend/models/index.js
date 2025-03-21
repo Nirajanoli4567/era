@@ -217,6 +217,12 @@ const bargainSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    counterOffer: {
+      type: Number,
+    },
+    vendorResponse: {
+      type: String,
+    },
     items: [
       {
         productId: {
@@ -231,7 +237,7 @@ const bargainSchema = new mongoose.Schema(
     ],
     status: {
       type: String,
-      enum: ["pending", "accepted", "rejected"],
+      enum: ["pending", "accepted", "rejected", "countered"],
       default: "pending",
     },
     adminResponse: {

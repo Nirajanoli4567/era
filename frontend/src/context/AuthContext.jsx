@@ -5,6 +5,17 @@ const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
+// Import debugging utility
+const logDebug = (message, data = null) => {
+  if (import.meta.env.DEV) {
+    if (data) {
+      console.log(`[Auth] ${message}`, data);
+    } else {
+      console.log(`[Auth] ${message}`);
+    }
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -16,7 +27,9 @@ export const AuthProvider = ({ children }) => {
   const isInitialized = useRef(false);
   
   // Fix API URL format - make sure it doesn't have a trailing slash
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+  
+  logDebug(`Using API URL: ${API_URL}`);
 
   // Configure axios defaults
   useEffect(() => {
@@ -51,18 +64,22 @@ export const AuthProvider = ({ children }) => {
     if (isInitialized.current) return;
     
     const loadUserFromStorage = async () => {
-      // Check if we've fetched recently to prevent excessive API calls
-      const now = Date.now();
-      if (now - lastProfileFetch.current < 30000) { // 30 seconds throttle
-        setLoading(false);
-        return;
-      }
-      
-      lastProfileFetch.current = now;
       setLoading(true);
       
       try {
         const token = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+        
+        // First set user from localStorage to prevent flicker
+        if (storedUser) {
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
+          } catch (err) {
+            console.error('Error parsing stored user data');
+          }
+        }
+        
         if (token) {
           if (import.meta.env.DEV) {
             console.log('Token found in storage:', token.substring(0, 10) + '...');
@@ -76,16 +93,35 @@ export const AuthProvider = ({ children }) => {
             console.log('Fetching user profile from:', `${API_URL}/api/auth/profile`);
           }
           
-          const res = await axios.get(`${API_URL}/api/auth/profile`);
+          // Use a timeout to allow for quick navigation without waiting for API
+          const timeoutId = setTimeout(() => {
+            if (loading) setLoading(false);
+          }, 500);
           
-          if (import.meta.env.DEV) {
-            console.log('Profile response:', res.data);
+          try {
+            const res = await axios.get(`${API_URL}/api/auth/profile`);
+            
+            if (import.meta.env.DEV) {
+              console.log('Profile response:', res.data);
+            }
+            
+            setUser(res.data);
+            
+            // Update stored user with fresh data
+            localStorage.setItem('user', JSON.stringify(res.data));
+            clearTimeout(timeoutId);
+          } catch (error) {
+            console.error('Error verifying token:', error);
+            // Don't remove token immediately on error - API might be temporarily down
+            if (error.response && error.response.status === 401) {
+              // Only clear on unauthorized
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              delete axios.defaults.headers.common['Authorization'];
+              setUser(null);
+            }
+            clearTimeout(timeoutId);
           }
-          
-          setUser(res.data);
-          
-          // Also store user in localStorage for components that need it
-          localStorage.setItem('user', JSON.stringify(res.data));
         } else {
           if (import.meta.env.DEV) {
             console.log('No token found in storage');
@@ -93,9 +129,6 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (err) {
         console.error('Error loading user from storage:', err);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        delete axios.defaults.headers.common['Authorization'];
       } finally {
         setLoading(false);
         isInitialized.current = true;
@@ -132,16 +165,19 @@ export const AuthProvider = ({ children }) => {
   const login = async (userData) => {
     setLoading(true);
     setError('');
+    logDebug('Attempting login', { email: userData.email });
+    
     try {
-      if (import.meta.env.DEV) {
-        console.log('Logging in at:', `${API_URL}/api/auth/login`);
-      }
+      // Verify the API endpoint
+      const loginEndpoint = `${API_URL}/api/auth/login`;
+      logDebug(`Login endpoint: ${loginEndpoint}`);
       
-      const res = await axios.post(`${API_URL}/api/auth/login`, userData);
+      // Add timeout for requests to prevent hanging
+      const res = await axios.post(loginEndpoint, userData, {
+        timeout: 10000 // 10 seconds timeout
+      });
       
-      if (import.meta.env.DEV) {
-        console.log('Login response:', res.data);
-      }
+      logDebug('Login successful', res.data);
       
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
@@ -156,8 +192,23 @@ export const AuthProvider = ({ children }) => {
       
       return true;
     } catch (err) {
-      console.error('Login error:', err);
-      setError(err.response?.data?.message || 'Login failed');
+      logDebug('Login failed', err);
+      
+      // More detailed error logging
+      if (err.response) {
+        // Server responded with a status code outside the 2xx range
+        logDebug(`Status: ${err.response.status}, Data:`, err.response.data);
+        setError(err.response.data?.message || `Login failed (${err.response.status})`);
+      } else if (err.request) {
+        // Request was made but no response received (network issue)
+        logDebug('No response received', err.request);
+        setError('No response from server. Please check your internet connection and make sure the backend is running.');
+      } else {
+        // Request setup error
+        logDebug('Request error', err.message);
+        setError(`Request error: ${err.message}`);
+      }
+      
       return false;
     } finally {
       setLoading(false);

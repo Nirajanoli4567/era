@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
-  userId: {
+  user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
@@ -12,7 +12,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['order', 'payment', 'delivery', 'system', 'other'],
+    enum: ['order', 'payment', 'delivery', 'system', 'bargain', 'other'],
     default: 'system'
   },
   read: {

@@ -355,11 +355,14 @@ router.get('/bargains', protect, vendor, async (req, res) => {
 
     // Find all bargains for these products
     const bargains = await Bargain.find({ 
-      productId: { $in: productIds } 
+      product: { $in: productIds } 
     })
     .sort({ createdAt: -1 })
-    .populate('userId', 'name email')
-    .populate('productId', 'name price images');
+    .populate('user', 'name email')
+    .populate({
+      path: 'product',
+      select: 'name price images description category countInStock vendorId'
+    });
 
     res.json(bargains);
   } catch (error) {
@@ -384,7 +387,7 @@ router.get('/orders', protect, vendor, async (req, res) => {
       'items.product': { $in: vendorProducts }
     })
     .sort({ createdAt: -1 })
-    .populate('userId', 'name email')
+    .populate('user', 'name email')
     .populate('items.product', 'name price images vendorId');
     
     // Apply limit if provided
@@ -585,7 +588,7 @@ router.put('/bargains/:id', protect, vendor, async (req, res) => {
 
     if (notificationMessage) {
       const notification = new Notification({
-        userId: bargain.userId,
+        user: bargain.user,
         message: notificationMessage,
         type: 'bargain',
         link: `/bargain/${bargain._id}`
@@ -597,6 +600,181 @@ router.put('/bargains/:id', protect, vendor, async (req, res) => {
     res.json(updatedBargain);
   } catch (error) {
     console.error('Error updating bargain request:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @desc    Get all orders (similar to admin route but for vendors)
+// @route   GET /api/vendor/all-orders
+// @access  Private/Vendor
+router.get('/all-orders', protect, vendor, async (req, res) => {
+  try {
+    const orders = await Order.find()
+      .populate("user", "name email")
+      .populate("items.product", "name price images vendorId")
+      .populate("items.bargain", "proposedPrice status")
+      .populate("bargainRequest", "proposedPrice status adminResponse")
+      .sort({ createdAt: -1 });
+    
+    res.json(orders);
+  } catch (error) {
+    console.error('Error fetching all orders:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @desc    Get all bargain requests (similar to admin route but for vendors)
+// @route   GET /api/vendor/all-bargains
+// @access  Private/Vendor
+router.get('/all-bargains', protect, vendor, async (req, res) => {
+  try {
+    const bargains = await Bargain.find()
+      .sort({ createdAt: -1 })
+      .populate('user', 'name email')
+      .populate({
+        path: 'product',
+        select: 'name price images description category countInStock vendorId'
+      });
+    
+    // Debug log to see bargain structure
+    if (bargains.length > 0) {
+      console.log('Example bargain structure:', JSON.stringify({
+        _id: bargains[0]._id,
+        user: bargains[0].user,
+        product: bargains[0].product,
+        originalPrice: bargains[0].originalPrice,
+        proposedPrice: bargains[0].proposedPrice,
+        status: bargains[0].status,
+        createdAt: bargains[0].createdAt
+      }, null, 2));
+    }
+    
+    res.json(bargains);
+  } catch (error) {
+    console.error('Error fetching all bargain requests:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @desc    Accept a bargain request
+// @route   POST /api/vendor/bargains/:id/accept
+// @access  Private/Vendor
+router.post('/bargains/:id/accept', protect, vendor, async (req, res) => {
+  try {
+    const bargainId = req.params.id;
+    
+    // Find the bargain
+    const bargain = await Bargain.findById(bargainId);
+    
+    if (!bargain) {
+      return res.status(404).json({ message: 'Bargain request not found' });
+    }
+
+    // Update bargain status
+    bargain.status = 'accepted';
+    
+    // Save the updated bargain
+    const updatedBargain = await bargain.save();
+    
+    // Create a notification for the user
+    const notification = new Notification({
+      user: bargain.user,
+      message: `Your offer of Rs. ${bargain.proposedPrice} has been accepted!`,
+      type: 'bargain',
+      link: `/bargain/${bargain._id}`
+    });
+
+    await notification.save();
+    
+    res.status(200).json(updatedBargain);
+  } catch (error) {
+    console.error('Error accepting bargain request:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @desc    Reject a bargain request
+// @route   POST /api/vendor/bargains/:id/reject
+// @access  Private/Vendor
+router.post('/bargains/:id/reject', protect, vendor, async (req, res) => {
+  try {
+    const bargainId = req.params.id;
+    
+    // Find the bargain
+    const bargain = await Bargain.findById(bargainId);
+    
+    if (!bargain) {
+      return res.status(404).json({ message: 'Bargain request not found' });
+    }
+
+    // Update bargain status
+    bargain.status = 'rejected';
+    
+    // Save the updated bargain
+    const updatedBargain = await bargain.save();
+    
+    // Create a notification for the user
+    const notification = new Notification({
+      user: bargain.user,
+      message: `Your offer of Rs. ${bargain.proposedPrice} has been rejected.`,
+      type: 'bargain',
+      link: `/bargain/${bargain._id}`
+    });
+
+    await notification.save();
+    
+    res.status(200).json(updatedBargain);
+  } catch (error) {
+    console.error('Error rejecting bargain request:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @desc    Counter a bargain request
+// @route   POST /api/vendor/bargains/:id/counter
+// @access  Private/Vendor
+router.post('/bargains/:id/counter', protect, vendor, async (req, res) => {
+  try {
+    const bargainId = req.params.id;
+    const { counterOffer, message } = req.body;
+    
+    // Validate counter offer
+    if (!counterOffer || isNaN(counterOffer) || Number(counterOffer) <= 0) {
+      return res.status(400).json({ message: 'Valid counter offer amount required' });
+    }
+    
+    // Find the bargain
+    const bargain = await Bargain.findById(bargainId);
+    
+    if (!bargain) {
+      return res.status(404).json({ message: 'Bargain request not found' });
+    }
+
+    // Update bargain status and counter offer
+    bargain.status = 'countered';
+    bargain.counterOffer = Number(counterOffer);
+    
+    // Add vendor response if provided
+    if (message) {
+      bargain.vendorResponse = message;
+    }
+    
+    // Save the updated bargain
+    const updatedBargain = await bargain.save();
+    
+    // Create a notification for the user
+    const notification = new Notification({
+      user: bargain.user,
+      message: `The vendor has countered your offer with Rs. ${counterOffer}.`,
+      type: 'bargain',
+      link: `/bargain/${bargain._id}`
+    });
+
+    await notification.save();
+    
+    res.status(200).json(updatedBargain);
+  } catch (error) {
+    console.error('Error countering bargain request:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
